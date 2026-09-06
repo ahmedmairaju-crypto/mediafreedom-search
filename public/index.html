@@ -64,7 +64,7 @@ body{background:radial-gradient(900px 500px at 5% -5%,rgba(124,74,255,.38),trans
 .provider-warning{margin-top:12px;padding:11px 13px;border:1px solid rgba(255,185,92,.16);background:rgba(255,185,92,.045);border-radius:14px;color:#b8a98d;font-size:11px}.provider-warning b{color:#ffd38c}
 @media(max-width:700px){.system-strip{grid-template-columns:repeat(2,1fr)}.hero{padding-top:50px}}
 </style></head><body><div id="spotlight"></div><button id="backTop" title="Back to top">↑</button><div class="wrap">
-<nav class="nav"><div class="brand">MEDIA<i>FREEDOM</i> SEARCH ◈</div><div class="statuspill">FREE-FIRST • ULTRA V3</div></nav>
+<nav class="nav"><div class="brand">MEDIA<i>FREEDOM</i> SEARCH ◈</div><div class="statuspill">FREE-FIRST • ULTRA V4</div></nav>
 <header class="hero"><div class="ey">THE UNIVERSAL MEDIA SEARCH ENGINE</div><h1>Search the world. Your way.</h1><p>One fast, cinematic workspace for media discovery, visual clues and the open web — with your controls, your filters and your shortcuts.</p></header>
 
 <div class="hero-badges"><span>⚡ FAST DISCOVERY</span><span>🌍 MULTI-LANGUAGE</span><span>🎛️ YOUR FILTERS</span><span>🔗 MULTI-ADDRESS READY</span></div>
@@ -113,7 +113,8 @@ $("vidhelp").onclick=()=>alert("The free workflow extracts frames from your vide
 $("vidgo").onclick=async()=>{let f=$("video").files[0];if(!f)return $("vstatus").textContent="Choose a video.";$("vstatus").textContent="Extracting frames…";let fd=new FormData();fd.append("video",f);try{let r=await fetch("/api/video-info",{method:"POST",body:fd}),j=await r.json();if(!r.ok)throw Error(j.error);if(!j.ok){$("vstatus").textContent=j.error;return}$("vstatus").textContent=`Extracted ${j.frames.length} frames. You can inspect them or use screenshot recognition.`;$("results").innerHTML=`<div class="section"><h2>🎞️ Extracted frames</h2></div><div class="grid">${j.frames.map((x,i)=>`<article class="card"><img class="poster frame" src="${esc(x)}"><div class="body"><div class="title">Frame ${i+1}</div><a class="link" href="${esc(x)}" target="_blank">OPEN FRAME ↗</a></div></article>`).join("")}</div>`}catch(e){$("vstatus").textContent="Error: "+e.message}};
 document.querySelectorAll('.quick-chip').forEach(b=>b.onclick=()=>{ $('q').value=b.dataset.q; $('go').click(); });
 async function loadDomainInfo(){try{const r=await fetch("/api/domain-info");const j=await r.json();const u=j.current||location.origin;$("currentUrl").textContent=u;const box=$("domainList");let items=[];if(j.primary&&j.primary!==u)items.push(`<a class="domain-chip" target="_blank" rel="noopener" href="${esc(j.primary)}"><b>PRIMARY</b><span>${esc(j.primary)}</span></a>`);(j.backups||[]).forEach((x,i)=>items.push(`<a class="domain-chip" target="_blank" rel="noopener" href="${esc(x)}"><b>BACKUP ${i+1}</b><span>${esc(x)}</span></a>`));box.innerHTML=items.join("")||`<span class="note">No backup addresses configured yet.</span>`;$("copyUrl").onclick=async()=>{try{await navigator.clipboard.writeText(u);$("copyUrl").textContent="COPIED ✓";setTimeout(()=>$('copyUrl').textContent="COPY",1600)}catch{alert(u)}};$("bookmarkBtn").onclick=()=>alert("Bookmark this address in your browser: "+u)}catch{$('currentUrl').textContent=location.origin}}loadDomainInfo();
-\n// Ultra UX: cursor glow, back-to-top, keyboard shortcut, and animated panel timing.
+
+// Ultra UX: cursor glow, back-to-top, keyboard shortcut, and animated panel timing.
 (function(){
  const spot=$("spotlight"),top=$("backTop");
  window.addEventListener("pointermove",e=>{spot.style.left=e.clientX+"px";spot.style.top=e.clientY+"px";spot.style.opacity="1"},{passive:true});
