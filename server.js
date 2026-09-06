@@ -48,16 +48,22 @@ app.post("/api/anime-image", upload.single("image"), async (req, res) => {
 
 async function anilist(q) {
   const query = `query($s:String){Page(perPage:20){media(search:$s,type:ANIME){id title{romaji english native}startDate{year}episodes genres averageScore coverImage{large}siteUrl}}}`;
-  const j = await jsonFetch("https://graphql.anilist.co", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, variables: { s: q } })
-  }, 9000);
-  return (j.data?.Page?.media || []).map(x => ({
-    id: x.id, title: title(x.title), year: x.startDate?.year, episodes: x.episodes,
-    genres: x.genres?.slice(0, 3), score: x.averageScore, image: x.coverImage?.large,
-    url: x.siteUrl, type: "anime"
-  }));
+  const j = await jsonFetch("https://graphql.anilist.co", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({query,variables:{s:q}}) }, 9000);
+  return (j.data?.Page?.media || []).map(x => ({id:x.id,title:title(x.title),year:x.startDate?.year,episodes:x.episodes,genres:x.genres?.slice(0,3),score:x.averageScore,image:x.coverImage?.large,url:x.siteUrl,type:"anime"}));
+}
+
+async function jikan(q) {
+  const j = await jsonFetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=20`, {}, 12000);
+  return (j.data || []).map(x => ({id:x.mal_id,title:x.title_english||x.title||"Unknown",year:x.year||x.aired?.prop?.from?.year,episodes:x.episodes,genres:(x.genres||[]).slice(0,3).map(g=>g.name),score:x.score?Math.round(x.score*10):null,image:x.images?.jpg?.large_image_url||x.images?.jpg?.image_url||null,url:x.url,type:"anime"}));
+}
+
+async function animeSearch(q) {
+  try {
+    const a = await anilist(q);
+    if (a.length) return {items:a,provider:"AniList"};
+  } catch {}
+  const a = await jikan(q);
+  return {items:a,provider:"Jikan fallback"};
 }
 
 async function tmdb(q, language = "all") {
@@ -101,22 +107,32 @@ app.get("/api/search", async (req, res) => {
   if (!q) return res.status(400).json({ error: "Enter a search." });
 
   const results = await Promise.allSettled([
-    anilist(q),
+    animeSearch(q),
     tmdb(q, language),
     music(q, language)
   ]);
   const [ar, tr, mr] = results;
   const errors = {};
-  const anime = ar.status === "fulfilled" ? ar.value : (errors.anime = "Anime service unavailable", []);
+  const animePack = ar.status === "fulfilled" ? ar.value : (errors.anime = "Anime services unavailable", {items:[],provider:"Unavailable"});
+  const anime = animePack.items || [];
   const tm = tr.status === "fulfilled" ? tr.value : (errors.tmdb = "Movie/TV service unavailable", {movies:[],tv:[]});
   const mus = mr.status === "fulfilled" ? mr.value : (errors.music = "Music service unavailable", []);
-  if (tm.unavailable) errors.tmdb = "TMDB API key not configured yet";
+  if (tm.unavailable) errors.tmdb = "TMDB key not configured; TV fallback will be used";
+  if (!tm.unavailable && !tm.movies.length && !tm.tv.length) errors.tmdb = "No movie/TV matches from TMDB";
 
   const queryText = language !== "all" ? `${q} ${language}` : q;
   const e = encodeURIComponent(queryText);
   const safe = adult ? "off" : "active";
+  let tv = tm.tv || [];
+  if (tv.length === 0) {
+    try {
+      const tj = await jsonFetch(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(q)}`, {}, 9000);
+      tv = (tj || []).slice(0,20).map(x=>({id:x.show?.id,title:x.show?.name||"Unknown",year:(x.show?.premiered||"").slice(0,4),overview:(x.show?.summary||"").replace(/<[^>]+>/g,""),image:x.show?.image?.medium||x.show?.image?.original||null,type:"tv",url:x.show?.url,originalLanguage:x.show?.language||""}));
+      if (tv.length) delete errors.tmdb;
+    } catch { if (!errors.tmdb) errors.tmdb="TV service unavailable"; }
+  }
   res.json({
-    query:q, anime, movies:tm.movies || [], tv:tm.tv || [], music:mus, errors,
+    query:q, anime, animeProvider:animePack.provider, movies:tm.movies || [], tv, music:mus, errors,
     shortcuts:[
       ["Google",`https://www.google.com/search?q=${e}&safe=${safe}`],
       ["Google Images",`https://www.google.com/search?tbm=isch&q=${e}&safe=${safe}`],
